@@ -854,8 +854,13 @@ static void migrateFromOldName(void) {
     [m addItem:[NSMenuItem separatorItem]];
     self.loginItem = [m addItemWithTitle:@"登录时自动打开" action:@selector(toggleLogin:) keyEquivalent:@""];
     self.loginItem.target = self;
-    NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
-    [m addItemWithTitle:[NSString stringWithFormat:@"检查更新…（当前 %@）", ver] action:@selector(checkUpdate:) keyEquivalent:@""].target = self;
+    // 检查更新：当前版本用菜单项右侧的系统标签显示（macOS 14 起有），不塞进标题里
+    NSMenuItem *upd = [m addItemWithTitle:@"检查更新…" action:@selector(checkUpdate:) keyEquivalent:@""];
+    upd.target = self;
+    if (@available(macOS 14.0, *)) {
+        NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+        upd.badge = [[NSMenuItemBadge alloc] initWithString:ver];
+    }
     [m addItem:[NSMenuItem separatorItem]];
     [m addItemWithTitle:@"退出" action:@selector(terminate:) keyEquivalent:@"q"];
     self.statusItem.menu = m;

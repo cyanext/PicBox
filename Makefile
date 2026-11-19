@@ -22,7 +22,7 @@ CFLAGS  := -fobjc-arc -O2 -arch arm64 -arch x86_64 -mmacosx-version-min=$(MIN_MA
 LDFLAGS := -framework Cocoa -framework QuartzCore -framework ServiceManagement \
            -framework UniformTypeIdentifiers -framework ImageIO -framework Vision
 
-.PHONY: build icon app install clean
+.PHONY: build icon app install zip clean
 
 build: $(BIN)
 
@@ -60,5 +60,11 @@ install: app
 	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(INSTALLED)"
 	open "$(INSTALLED)"
 
+# 发布用的安装包：dist/PicBox-<版本>.zip，传到 GitHub Release，程序自动更新时下载它
+zip: app
+	@mkdir -p dist
+	rm -f "dist/$(APP_NAME)-$(VERSION).zip"
+	/usr/bin/ditto -c -k --keepParent "$(APP)" "dist/$(APP_NAME)-$(VERSION).zip"
+
 clean:
-	rm -rf $(BUILD) $(STAGE)
+	rm -rf $(BUILD) $(STAGE) dist

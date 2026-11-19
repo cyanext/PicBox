@@ -9,6 +9,7 @@
 #import <Vision/Vision.h>
 #import <dlfcn.h>
 #import "AppIcon.h"
+#import "Updater.h"
 
 #define CARD_W 180   // 缩略图宽
 #define CARD_HMIN 60 // 缩略图高的范围，太长太扁的图按这个裁
@@ -773,6 +774,8 @@ static void migrateFromOldName(void) {
     [m addItem:[NSMenuItem separatorItem]];
     self.loginItem = [m addItemWithTitle:@"登录时自动打开" action:@selector(toggleLogin:) keyEquivalent:@""];
     self.loginItem.target = self;
+    NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    [m addItemWithTitle:[NSString stringWithFormat:@"检查更新…（当前 %@）", ver] action:@selector(checkUpdate:) keyEquivalent:@""].target = self;
     [m addItem:[NSMenuItem separatorItem]];
     [m addItemWithTitle:@"退出" action:@selector(terminate:) keyEquivalent:@"q"];
     self.statusItem.menu = m;
@@ -812,6 +815,8 @@ static void migrateFromOldName(void) {
     [self cleanup];
     NSTimer *ct = [NSTimer timerWithTimeInterval:3600 target:self selector:@selector(cleanup) userInfo:nil repeats:YES];
     [[NSRunLoop mainRunLoop] addTimer:ct forMode:NSRunLoopCommonModes];
+
+    [[Updater shared] startWithRepo:@"cyanext/PicBox"];
 
     // 打开前剪贴板里已有的图片不算
     _lastChange = NSPasteboard.generalPasteboard.changeCount;
@@ -919,6 +924,10 @@ static void migrateFromOldName(void) {
     }
     self.loginItem.state = SMAppService.mainAppService.status == SMAppServiceStatusEnabled ? NSControlStateValueOn
                                                                                              : NSControlStateValueOff;
+}
+
+- (void)checkUpdate:(id)s {
+    [[Updater shared] checkNow];
 }
 
 - (void)openDir:(id)s {

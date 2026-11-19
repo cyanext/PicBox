@@ -101,6 +101,17 @@ static void toast(NSView *view, NSString *msg) {
     });
 }
 
+// 这个视图有没有加过自己的鼠标跟踪区域。不能看跟踪区域的总数：按钮、带提示文字的视图本身就带着系统加的，
+// 只看总数的话自己的永远加不上，悬停、光标都不生效
+static BOOL hasOwnTracking(NSView *v) {
+    for (NSTrackingArea *t in v.trackingAreas) {
+        if (t.owner == v) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 // 牌上用的小图：按牌的大小（Retina 两倍）解码，不把整张原图放进内存。全屏截图原图解码后几十 MB，5 张就几百 MB
 static NSImage *makeThumb(NSData *data) {
     CGImageSourceRef src = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
@@ -130,16 +141,48 @@ static NSImage *makeThumb(NSData *data) {
 #pragma mark 缩略图
 
 // 小圆图标按钮（×、图钉、复制、识别文字），鼠标停上去才显示。圆底自己画，四个一样大；
-// 符号都用线条版、同样的字号和粗细，看起来是一套。白色符号叠在深色圆底上：图浅时看圆底，图深时看符号
+// 符号都用线条版、同样的字号和粗细，看起来是一套。白色符号叠在深色圆底上：图浅时看圆底，图深时看符号。
+// 鼠标停在按钮上，圆底换成强调色
+@interface HoverButton : NSButton
+@end
+@implementation HoverButton
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    if (!hasOwnTracking(self)) {
+        [self addTrackingArea:[[NSTrackingArea alloc]
+                                  initWithRect:NSZeroRect
+                                       options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                         owner:self
+                                      userInfo:nil]];
+    }
+}
+- (void)setLit:(BOOL)on {
+    self.layer.backgroundColor = on ? NSColor.controlAccentColor.CGColor : [NSColor colorWithWhite:0.1 alpha:0.75].CGColor;
+}
+- (void)mouseEntered:(NSEvent *)e {
+    [self setLit:YES];
+}
+- (void)mouseExited:(NSEvent *)e {
+    [self setLit:NO];
+}
+// 藏起来的时候清掉高亮：鼠标停在按钮上时牌被收起，系统不会再发移出事件
+- (void)setHidden:(BOOL)h {
+    [super setHidden:h];
+    if (h) {
+        [self setLit:NO];
+    }
+}
+@end
+
 static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL action) {
-    NSButton *b = [NSButton buttonWithImage:[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:desc]
-                                     target:target
-                                     action:action];
+    HoverButton *b = [HoverButton buttonWithImage:[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:desc]
+                                           target:target
+                                           action:action];
     b.bordered = NO;
     b.symbolConfiguration = [[NSImageSymbolConfiguration configurationWithPointSize:10 weight:NSFontWeightMedium]
         configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[ NSColor.whiteColor ]]];
     b.wantsLayer = YES;
-    b.layer.backgroundColor = [NSColor colorWithWhite:0.1 alpha:0.75].CGColor;
+    [b setLit:NO];
     b.layer.cornerRadius = BTN_D / 2.0;
     b.frame = NSMakeRect(0, 0, BTN_D, BTN_D);
     b.toolTip = desc;
@@ -293,7 +336,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
 @implementation PinView
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
-    if (!self.trackingAreas.count) {
+    if (!hasOwnTracking(self)) {
         [self addTrackingArea:[[NSTrackingArea alloc]
                                   initWithRect:NSZeroRect
                                        options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
@@ -546,30 +589,55 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
 
 // 打开目录的小圆按钮，兼作暂存区的把手：点一下打开目录，按住拖动整个暂存区，松手后回调 onMoved 记住位置
 @interface DirButton : NSView
-@property(copy) void (^onClick)(void);
+@property(copy) void (^onClick)(void); // 点右半边：打开截图目录
+@property(copy) void (^onClear)(void); // 点左半边：收起全部缩略图
 @property(copy) void (^onMoved)(void);
 @end
 @implementation DirButton {
     NSPoint _down, _origin;
     BOOL _dragged;
+    NSView *_lit[2]; // 左右两半的悬停底色
 }
 - (instancetype)initWithFrame:(NSRect)r {
     if (!(self = [super initWithFrame:r])) {
         return nil;
     }
+    // 胶囊：左半边小刷子（收起全部缩略图），右半边文件夹（打开截图目录），中间一道细分隔线
     NSVisualEffectView *v = [[NSVisualEffectView alloc] initWithFrame:self.bounds];
     v.material = NSVisualEffectMaterialHUDWindow;
     v.state = NSVisualEffectStateActive;
     v.wantsLayer = YES;
-    v.layer.cornerRadius = r.size.width / 2;
+    v.layer.cornerRadius = r.size.height / 2;
     v.layer.masksToBounds = YES;
     [self addSubview:v];
-    NSImageView *iv = [NSImageView imageViewWithImage:[NSImage imageWithSystemSymbolName:@"folder"
-                                                                accessibilityDescription:@"打开截图目录"]];
-    iv.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:12 weight:NSFontWeightMedium];
-    iv.frame = self.bounds;
-    [self addSubview:iv];
-    self.toolTip = @"点一下打开截图目录，按住拖动移动暂存区";
+    CGFloat half = r.size.width / 2, nudge = 1; // 图标各往中间靠一点：胶囊两头是圆的，这样看着居中
+    // 鼠标停在哪半边，那半边的图标后面铺一个圆形淡底，按图标的中心画
+    for (int i = 0; i < 2; i++) {
+        CGFloat d = r.size.height - 4, c = i * half + half / 2 + (i ? -nudge : nudge);
+        NSView *lit = [[NSView alloc] initWithFrame:NSMakeRect(round(c - d / 2), 2, d, d)];
+        lit.wantsLayer = YES;
+        lit.layer.cornerRadius = d / 2;
+        lit.layer.backgroundColor = [NSColor.labelColor colorWithAlphaComponent:0.16].CGColor;
+        lit.hidden = YES;
+        [self addSubview:lit];
+        _lit[i] = lit;
+    }
+    NSArray *icons = @[ @[ @"clear", @"收起全部缩略图" ], @[ @"folder", @"打开截图目录" ] ];
+    for (NSUInteger i = 0; i < 2; i++) {
+        NSImageView *iv = [NSImageView imageViewWithImage:[NSImage imageWithSystemSymbolName:icons[i][0]
+                                                                    accessibilityDescription:icons[i][1]]];
+        iv.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:12 weight:NSFontWeightMedium];
+        iv.frame = NSMakeRect(i * half + (i ? -nudge : nudge), 0, half, r.size.height);
+        [self addSubview:iv];
+        [self addToolTipRect:NSMakeRect(i * half, 0, half, r.size.height)
+                       owner:[NSString stringWithFormat:@"%@，按住拖动移动暂存区", icons[i][1]]
+                    userData:NULL];
+    }
+    NSBox *line = [[NSBox alloc] initWithFrame:NSMakeRect(half - 0.5, 7, 1, r.size.height - 14)];
+    line.boxType = NSBoxCustom;
+    line.borderWidth = 0;
+    line.fillColor = [NSColor.labelColor colorWithAlphaComponent:0.2];
+    [self addSubview:line];
     return self;
 }
 - (NSView *)hitTest:(NSPoint)p {
@@ -584,18 +652,29 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
 // 暂存区不抢焦点，系统不给非焦点窗口换光标（cursorRect 不生效），自己在进出时换
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
-    if (!self.trackingAreas.count) {
-        [self addTrackingArea:[[NSTrackingArea alloc]
-                                  initWithRect:NSZeroRect
-                                       options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
-                                         owner:self
-                                      userInfo:nil]];
+    if (!hasOwnTracking(self)) {
+        [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
+                                                           options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+                                                                   NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                                             owner:self
+                                                          userInfo:nil]];
     }
 }
+// 按鼠标在左半边还是右半边点亮那一半；拖动时不亮
+- (void)lightAt:(NSEvent *)e {
+    BOOL left = [self convertPoint:e.locationInWindow fromView:nil].x < NSMidX(self.bounds);
+    _lit[0].hidden = _dragged || !left;
+    _lit[1].hidden = _dragged || left;
+}
+// 悬停保持普通箭头（胶囊主要是两个按钮），真正拖动时才换成握拳的手
 - (void)mouseEntered:(NSEvent *)e {
-    [NSCursor.openHandCursor set];
+    [self lightAt:e];
+}
+- (void)mouseMoved:(NSEvent *)e {
+    [self lightAt:e];
 }
 - (void)mouseExited:(NSEvent *)e {
+    _lit[0].hidden = _lit[1].hidden = YES;
     if (!_dragged) {
         [NSCursor.arrowCursor set];
     }
@@ -611,18 +690,24 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
         return;
     }
     _dragged = YES;
+    _lit[0].hidden = _lit[1].hidden = YES;
     [NSCursor.closedHandCursor set];
     [self.window setFrameOrigin:NSMakePoint(round(_origin.x + p.x - _down.x), round(_origin.y + p.y - _down.y))];
 }
 - (void)mouseUp:(NSEvent *)e {
     if (_dragged) {
         _dragged = NO;
-        [NSCursor.openHandCursor set];
+        [NSCursor.arrowCursor set];
         if (self.onMoved) {
             self.onMoved();
         }
-    } else if (self.onClick) {
-        self.onClick();
+    } else {
+        // 没拖动：按松手的位置分左右两半
+        BOOL left = [self convertPoint:e.locationInWindow fromView:nil].x < NSMidX(self.bounds);
+        void (^act)(void) = left ? self.onClear : self.onClick;
+        if (act) {
+            act();
+        }
     }
 }
 @end
@@ -643,7 +728,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
 @implementation ShelfView
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
-    if (!self.trackingAreas.count) {
+    if (!hasOwnTracking(self)) {
         [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
                                                            options:NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited |
                                                                    NSTrackingActiveAlways | NSTrackingInVisibleRect
@@ -820,12 +905,16 @@ static void migrateFromOldName(void) {
     [[NSRunLoop mainRunLoop] addTimer:t forMode:NSRunLoopCommonModes];
 }
 
-// 打开目录的小圆按钮，放在暂存区右下角，兼作拖动暂存区的把手
+// 暂存区右下角的胶囊按钮：左边收起全部缩略图，右边打开截图目录，兼作拖动暂存区的把手
 - (DirButton *)makeDirButton {
-    DirButton *b = [[DirButton alloc] initWithFrame:NSMakeRect(0, 0, BTN, BTN)];
+    // 胶囊 60×26：两个悬停圆底之间留出空隙，不挤
+    DirButton *b = [[DirButton alloc] initWithFrame:NSMakeRect(0, 0, 60, BTN)];
     __weak AppDelegate *me = self;
     b.onClick = ^{
         [me openDir:nil];
+    };
+    b.onClear = ^{
+        [me clearAll:nil];
     };
     b.onMoved = ^{
         [me saveAnchor];
@@ -1261,7 +1350,7 @@ static NSRect fanGeometry(NSUInteger n, const CGFloat *hs, CGFloat *angles, NSPo
     }
     NSRect fan = fanGeometry(n, hs, angles, centers);
     // 取整：落在半个像素上，按钮和图会发虚
-    CGFloat W = ceil(NSWidth(fan)) + PAD * 2 + 8 + BTN;
+    CGFloat W = ceil(NSWidth(fan)) + PAD * 2 + 8 + NSWidth(self.dirBtn.frame);
     CGFloat H = ceil(NSHeight(fan)) + PAD * 2 + LIFT;
     for (NSUInteger i = 0; i < n; i++) {
         Card *c = self.cards[i];
@@ -1274,7 +1363,7 @@ static NSRect fanGeometry(NSUInteger n, const CGFloat *hs, CGFloat *angles, NSPo
     }
     [self restack];
     [self placeHoverButtons];
-    [self.dirBtn setFrameOrigin:NSMakePoint(W - PAD - BTN, PAD)];
+    [self.dirBtn setFrameOrigin:NSMakePoint(W - PAD - NSWidth(self.dirBtn.frame), PAD)];
     [self.panel setFrame:[self shelfFrameWithSize:NSMakeSize(W, H)] display:YES];
     [self.panel orderFrontRegardless];
 }

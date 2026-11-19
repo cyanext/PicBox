@@ -26,6 +26,7 @@
 #define PIN_AREA 0.15   // 刚钉上时最多占屏幕可用面积的这个比例
 #define PIN_SIDE 0.5    // 宽、高各自最多占屏幕可用区域的这个比例
 #define CARD_BTN_TAG 77 // 牌角上 × 和图钉的标记，鼠标停在上面时悬停的那张不变
+#define BTN_D 22         // 牌角、钉住窗口上小圆按钮的直径
 
 static NSString *saveDirPath(void) {
     return [NSHomeDirectory() stringByAppendingPathComponent:@"Pictures/PicBox"];
@@ -128,25 +129,19 @@ static NSImage *makeThumb(NSData *data) {
 
 #pragma mark 缩略图
 
-// 小圆图标按钮（×、图钉、识别文字），鼠标停上去才显示。白色符号叠在深色圆底上：
-// 图浅时看圆底，图深时看白色符号
+// 小圆图标按钮（×、图钉、复制、识别文字），鼠标停上去才显示。圆底自己画，四个一样大；
+// 符号都用线条版、同样的字号和粗细，看起来是一套。白色符号叠在深色圆底上：图浅时看圆底，图深时看符号
 static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL action) {
     NSButton *b = [NSButton buttonWithImage:[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:desc]
                                      target:target
                                      action:action];
     b.bordered = NO;
-    NSImageSymbolConfiguration *size = [NSImageSymbolConfiguration configurationWithPointSize:16 weight:NSFontWeightSemibold];
-    NSImageSymbolConfiguration *colors =
-        [NSImageSymbolConfiguration configurationWithPaletteColors:@[ NSColor.whiteColor, [NSColor colorWithWhite:0.1 alpha:0.75] ]];
-    b.symbolConfiguration = [size configurationByApplyingConfiguration:colors];
+    b.symbolConfiguration = [[NSImageSymbolConfiguration configurationWithPointSize:10 weight:NSFontWeightMedium]
+        configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[ NSColor.whiteColor ]]];
     b.wantsLayer = YES;
-    // 不带圆底的符号（识别文字的取景框）自己补一个同色的深色圆底，符号缩小放在里面，和 ×、图钉看起来一组
-    if (![symbol hasSuffix:@".circle.fill"]) {
-        b.layer.backgroundColor = [NSColor colorWithWhite:0.1 alpha:0.75].CGColor;
-        b.symbolConfiguration = [[NSImageSymbolConfiguration configurationWithPointSize:10 weight:NSFontWeightBold]
-            configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[ NSColor.whiteColor ]]];
-    }
-    b.layer.cornerRadius = 10;
+    b.layer.backgroundColor = [NSColor colorWithWhite:0.1 alpha:0.75].CGColor;
+    b.layer.cornerRadius = BTN_D / 2.0;
+    b.frame = NSMakeRect(0, 0, BTN_D, BTN_D);
     b.toolTip = desc;
     b.hidden = YES;
     return b;
@@ -359,13 +354,13 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     v.layer.contents = img;
     v.layer.contentsGravity = kCAGravityResizeAspect;
     v.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
-    v.closeBtn = roundButton(@"xmark.circle.fill", @"取消钉住", self, @selector(unpin:));
-    v.closeBtn.frame = NSMakeRect(s.width - 26, s.height - 26, 20, 20);
+    v.closeBtn = roundButton(@"xmark", @"取消钉住", self, @selector(unpin:));
+    v.closeBtn.frame = NSMakeRect(s.width - BTN_D - 6, s.height - BTN_D - 6, BTN_D, BTN_D);
     v.closeBtn.autoresizingMask = NSViewMinXMargin | NSViewMinYMargin;
     [v addSubview:v.closeBtn];
     // 右下角识别文字，和牌上的位置一致
     v.ocrBtn = roundButton(@"text.viewfinder", @"识别文字", self, @selector(ocr:));
-    v.ocrBtn.frame = NSMakeRect(s.width - 26, 6, 20, 20);
+    v.ocrBtn.frame = NSMakeRect(s.width - BTN_D - 6, 6, BTN_D, BTN_D);
     v.ocrBtn.autoresizingMask = NSViewMinXMargin | NSViewMaxYMargin;
     [v addSubview:v.ocrBtn];
     self.contentView = v;
@@ -1089,8 +1084,8 @@ static BOOL isImageFile(NSURL *u) {
     c.onPin = ^(Card *x) {
         [me pin:x];
     };
-    c.closeBtn = roundButton(@"xmark.circle.fill", @"收起", self, @selector(cardButton:));
-    c.pinBtn = roundButton(@"pin.circle.fill", @"钉在屏幕上", self, @selector(cardButton:));
+    c.closeBtn = roundButton(@"xmark", @"收起", self, @selector(cardButton:));
+    c.pinBtn = roundButton(@"pin", @"钉在屏幕上", self, @selector(cardButton:));
     c.ocrBtn = roundButton(@"text.viewfinder", @"识别文字", self, @selector(cardButton:));
     c.imageCopyBtn = roundButton(@"doc.on.doc", @"复制图片", self, @selector(cardButton:));
     c.onClick = ^(Card *x, BOOL shift) {
@@ -1107,7 +1102,6 @@ static BOOL isImageFile(NSURL *u) {
     };
     for (NSButton *b in c.buttons) {
         b.tag = CARD_BTN_TAG;
-        b.frame = NSMakeRect(0, 0, 20, 20);
         b.alphaValue = 0;
         [self.panel.contentView addSubview:b];
     }
@@ -1376,9 +1370,10 @@ static NSRect fanGeometry(NSUInteger n, const CGFloat *hs, CGFloat *angles, NSPo
     NSPoint ctr = NSMakePoint(c.baseCenter.x - l * sin(t), c.baseCenter.y + l * cos(t));
     // × 左上、图钉右上、复制图片左下、识别文字右下
     BOOL left = b == c.closeBtn || b == c.imageCopyBtn, bottom = b == c.ocrBtn || b == c.imageCopyBtn;
-    double dx = (left ? -1 : 1) * (sz.width / 2 - 14), dy = (bottom ? -1 : 1) * (sz.height / 2 - 14);
+    double inset = BTN_D / 2.0 + 4; // 按钮中心离牌边的距离
+    double dx = (left ? -1 : 1) * (sz.width / 2 - inset), dy = (bottom ? -1 : 1) * (sz.height / 2 - inset);
     NSPoint p = NSMakePoint(ctr.x + dx * cos(t) - dy * sin(t), ctr.y + dx * sin(t) + dy * cos(t));
-    return NSMakePoint(round(p.x - 10), round(p.y - 10));
+    return NSMakePoint(round(p.x - BTN_D / 2.0), round(p.y - BTN_D / 2.0));
 }
 
 // 不带动画地摆好各张牌的按钮（重新排版后用）：悬停那张的显示在抽出后的位置，其他的藏起来

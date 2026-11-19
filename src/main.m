@@ -859,7 +859,7 @@ static void migrateFromOldName(void) {
     upd.target = self;
     if (@available(macOS 14.0, *)) {
         NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
-        upd.badge = [[NSMenuItemBadge alloc] initWithString:ver];
+        upd.badge = [[NSMenuItemBadge alloc] initWithString:[@"v" stringByAppendingString:ver]];
     }
     [m addItem:[NSMenuItem separatorItem]];
     [m addItemWithTitle:@"退出" action:@selector(terminate:) keyEquivalent:@"q"];

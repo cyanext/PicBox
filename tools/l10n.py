@@ -4,10 +4,16 @@
 import re, sys, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
 keys = []
-for f in sorted((root / 'src').glob('*.m')):
+for f in sorted(p for p in (root / 'src').glob('*.m') if p.name != 'SelfTest.m'):  # 自测只在开发时跑，不翻
     for m in re.finditer(r'L\(@"((?:[^"\\]|\\.)*)"\)', f.read_text()):
         if m.group(1) not in keys:
             keys.append(m.group(1))
+    # 表里的 C 字符串（型号、分组），运行时用 NSLocalizedString 翻译：带中文的才要
+    for line in f.read_text().split('\n'):
+        code = line.split('//')[0]
+        for m in re.finditer(r'(?<![@\w])"((?:[^"\\]|\\.)*[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef](?:[^"\\]|\\.)*)"', code):
+            if 'L(@' not in code[max(0, m.start() - 4):m.start()] and m.group(1) not in keys:
+                keys.append(m.group(1))
 strings = root / 'Resources/en.lproj/Localizable.strings'
 have = dict(re.findall(r'^"((?:[^"\\]|\\.)*)"\s*=\s*"((?:[^"\\]|\\.)*)";', strings.read_text(), re.M)) if strings.exists() else {}
 missing = [k for k in keys if k not in have]

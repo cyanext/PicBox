@@ -897,6 +897,11 @@ static void migrateFromOldName(void) {
         return;
     }
 
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(screensChanged:)
+                                                 name:NSApplicationDidChangeScreenParametersNotification
+                                               object:nil];
+
     // 启动时清一次，之后每小时一次
     [self cleanup];
     NSTimer *ct = [NSTimer timerWithTimeInterval:3600 target:self selector:@selector(cleanup) userInfo:nil repeats:YES];
@@ -928,7 +933,8 @@ static void migrateFromOldName(void) {
     return b;
 }
 
-// 暂存区在哪块屏：记住拖过去的那块，拔掉了就用主屏。不跟着焦点换屏
+// 暂存区在哪块屏：记住拖过去的那块；没拖过或那块拔掉了，就放程序坞所在的屏，找不到程序坞再用菜单栏所在的屏。不跟着焦点换屏
+// 程序坞所在的屏：可用区域在左、右、下三边有缩进（程序坞自动隐藏时也留几个点）。菜单栏只占上边，不算
 - (NSScreen *)shelfScreen {
     NSNumber *want = [[NSUserDefaults standardUserDefaults] objectForKey:@"shelfScreen"];
     for (NSScreen *s in NSScreen.screens) {
@@ -936,7 +942,20 @@ static void migrateFromOldName(void) {
             return s;
         }
     }
+    for (NSScreen *s in NSScreen.screens) {
+        NSRect f = s.frame, v = s.visibleFrame;
+        if (NSMinX(v) > NSMinX(f) || NSMaxX(v) < NSMaxX(f) || NSMinY(v) > NSMinY(f)) {
+            return s;
+        }
+    }
     return NSScreen.screens.firstObject ?: NSScreen.mainScreen;
+}
+
+// 插拔显示器、唤醒、程序坞换了屏：暂存区正摆着的话重新摆一次
+- (void)screensChanged:(NSNotification *)n {
+    if (self.panel.isVisible) {
+        [self layout];
+    }
 }
 
 // 暂存区的位置记成右下角到屏幕可用区域右边、下边的距离：牌多牌少面板大小会变，右下角不动

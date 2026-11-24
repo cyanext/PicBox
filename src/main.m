@@ -1,6 +1,7 @@
 // PicBox：剪贴板里一出现图片（截图、浏览器里复制图片等），就存成文件放进 ~/Pictures/PicBox，
 // 在屏幕右下角像扑克牌一样扇形展开。拖出来发到任何应用，单击放回剪贴板，Shift 多选一起拖，
 // 可以钉在屏幕上、识别图里的文字。缩略图点 × 或拖走后消失，文件留在目录里，到期自动删
+#import "Localize.h"
 #import <Cocoa/Cocoa.h>
 #import <ImageIO/ImageIO.h>
 #import <QuartzCore/QuartzCore.h>
@@ -247,7 +248,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     ph.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
     [self addSubview:ph];
     self.photo = ph;
-    self.toolTip = @"拖出来发送或保存。单击复制文件路径，Shift 单击多选，双击打开";
+    self.toolTip = L(@"拖出来发送或保存。单击复制文件路径，Shift 单击多选，双击打开");
     return self;
 }
 
@@ -397,12 +398,12 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     v.layer.contents = img;
     v.layer.contentsGravity = kCAGravityResizeAspect;
     v.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
-    v.closeBtn = roundButton(@"xmark", @"取消钉住", self, @selector(unpin:));
+    v.closeBtn = roundButton(@"xmark", L(@"取消钉住"), self, @selector(unpin:));
     v.closeBtn.frame = NSMakeRect(s.width - BTN_D - 6, s.height - BTN_D - 6, BTN_D, BTN_D);
     v.closeBtn.autoresizingMask = NSViewMinXMargin | NSViewMinYMargin;
     [v addSubview:v.closeBtn];
     // 右下角识别文字，和牌上的位置一致
-    v.ocrBtn = roundButton(@"text.viewfinder", @"识别文字", self, @selector(ocr:));
+    v.ocrBtn = roundButton(@"text.viewfinder", L(@"识别文字"), self, @selector(ocr:));
     v.ocrBtn.frame = NSMakeRect(s.width - BTN_D - 6, 6, BTN_D, BTN_D);
     v.ocrBtn.autoresizingMask = NSViewMinXMargin | NSViewMaxYMargin;
     [v addSubview:v.ocrBtn];
@@ -453,7 +454,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     if (!self) {
         return nil;
     }
-    self.title = @"识别的文字";
+    self.title = L(@"识别的文字");
     self.level = NSFloatingWindowLevel;
     self.hidesOnDeactivate = NO;
     self.releasedWhenClosed = NO;
@@ -478,7 +479,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     tv.verticallyResizable = YES;
     tv.autoresizingMask = NSViewWidthSizable;
     tv.textContainer.widthTracksTextView = YES;
-    tv.string = @"正在识别…";
+    tv.string = L(@"正在识别…");
     sv.documentView = tv;
     [cv addSubview:sv];
     self.tv = tv;
@@ -487,7 +488,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
     line.boxType = NSBoxSeparator;
     line.autoresizingMask = NSViewWidthSizable | NSViewMaxYMargin;
     [cv addSubview:line];
-    NSButton *copy = [NSButton buttonWithTitle:@"全部复制" target:self action:@selector(copyAll:)];
+    NSButton *copy = [NSButton buttonWithTitle:L(@"全部复制") target:self action:@selector(copyAll:)];
     copy.bezelStyle = NSBezelStylePush;
     [copy sizeToFit];
     [copy setFrameOrigin:NSMakePoint(W - 12 - copy.frame.size.width, round((BAR - copy.frame.size.height) / 2))];
@@ -536,14 +537,14 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
 - (void)showText:(NSString *)text {
     self.hasText = text.length > 0;
     self.tv.textColor = text.length ? NSColor.labelColor : NSColor.secondaryLabelColor;
-    self.tv.string = text.length ? text : @"没有识别到文字";
+    self.tv.string = text.length ? text : L(@"没有识别到文字");
     [self fitHeight];
 }
 
 - (void)copyAll:(id)sender {
     if (self.onCopy && self.hasText) {
         self.onCopy(self.tv.string);
-        toast(self.contentView, @"已复制");
+        toast(self.contentView, L(@"已复制"));
     }
 }
 
@@ -554,7 +555,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
             // 选了一部分就复制选中的，没选就整段复制
             if (self.tv.selectedRange.length) {
                 [self.tv copy:nil];
-                toast(self.contentView, @"已复制选中的文字");
+                toast(self.contentView, L(@"已复制选中的文字"));
             } else {
                 [self copyAll:nil];
             }
@@ -622,7 +623,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
         [self addSubview:lit];
         _lit[i] = lit;
     }
-    NSArray *icons = @[ @[ @"clear", @"收起全部缩略图" ], @[ @"folder", @"打开截图目录" ] ];
+    NSArray *icons = @[ @[ @"clear", L(@"收起全部缩略图") ], @[ @"folder", L(@"打开截图目录") ] ];
     for (NSUInteger i = 0; i < 2; i++) {
         NSImageView *iv = [NSImageView imageViewWithImage:[NSImage imageWithSystemSymbolName:icons[i][0]
                                                                     accessibilityDescription:icons[i][1]]];
@@ -630,7 +631,7 @@ static NSButton *roundButton(NSString *symbol, NSString *desc, id target, SEL ac
         iv.frame = NSMakeRect(i * half + (i ? -nudge : nudge), 0, half, r.size.height);
         [self addSubview:iv];
         [self addToolTipRect:NSMakeRect(i * half, 0, half, r.size.height)
-                       owner:[NSString stringWithFormat:@"%@，按住拖动移动暂存区", icons[i][1]]
+                       owner:[NSString stringWithFormat:L(@"%@，按住拖动移动暂存区"), icons[i][1]]
                     userData:NULL];
     }
     NSBox *line = [[NSBox alloc] initWithFrame:NSMakeRect(half - 0.5, 7, 1, r.size.height - 14)];
@@ -840,29 +841,29 @@ static void migrateFromOldName(void) {
     self.statusItem.button.toolTip = @"PicBox";
     NSMenu *m = [NSMenu new];
     m.delegate = self;
-    [m addItemWithTitle:@"打开截图目录" action:@selector(openDir:) keyEquivalent:@""].target = self;
-    [m addItemWithTitle:@"收起全部缩略图" action:@selector(clearAll:) keyEquivalent:@""].target = self;
-    NSMenuItem *keep = [m addItemWithTitle:@"自动清理" action:nil keyEquivalent:@""];
+    [m addItemWithTitle:L(@"打开截图目录") action:@selector(openDir:) keyEquivalent:@""].target = self;
+    [m addItemWithTitle:L(@"收起全部缩略图") action:@selector(clearAll:) keyEquivalent:@""].target = self;
+    NSMenuItem *keep = [m addItemWithTitle:L(@"自动清理") action:nil keyEquivalent:@""];
     self.keepMenu = [NSMenu new];
     for (NSNumber *d in @[ @1, @3, @7, @14, @30, @0 ]) {
-        NSString *t = d.intValue ? [NSString stringWithFormat:@"保留 %@ 天", d] : @"不清理";
+        NSString *t = d.intValue == 1 ? L(@"保留 1 天") : d.intValue ? [NSString stringWithFormat:L(@"保留 %@ 天"), d] : L(@"不清理");
         NSMenuItem *it = [self.keepMenu addItemWithTitle:t action:@selector(pickKeep:) keyEquivalent:@""];
         it.target = self;
         it.tag = d.intValue;
     }
     keep.submenu = self.keepMenu;
     [m addItem:[NSMenuItem separatorItem]];
-    self.loginItem = [m addItemWithTitle:@"登录时自动打开" action:@selector(toggleLogin:) keyEquivalent:@""];
+    self.loginItem = [m addItemWithTitle:L(@"登录时自动打开") action:@selector(toggleLogin:) keyEquivalent:@""];
     self.loginItem.target = self;
     // 检查更新：当前版本用菜单项右侧的系统标签显示（macOS 14 起有），不塞进标题里
-    NSMenuItem *upd = [m addItemWithTitle:@"检查更新…" action:@selector(checkUpdate:) keyEquivalent:@""];
+    NSMenuItem *upd = [m addItemWithTitle:L(@"检查更新…") action:@selector(checkUpdate:) keyEquivalent:@""];
     upd.target = self;
     if (@available(macOS 14.0, *)) {
         NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
         upd.badge = [[NSMenuItemBadge alloc] initWithString:[@"v" stringByAppendingString:ver]];
     }
     [m addItem:[NSMenuItem separatorItem]];
-    [m addItemWithTitle:@"退出" action:@selector(terminate:) keyEquivalent:@"q"];
+    [m addItemWithTitle:L(@"退出") action:@selector(terminate:) keyEquivalent:@"q"];
     self.statusItem.menu = m;
 
     Shelf *p = [[Shelf alloc] initWithContentRect:NSMakeRect(0, 0, CARD_W, CARD_HMIN)
@@ -971,7 +972,7 @@ static void migrateFromOldName(void) {
     [self cleanup];
 }
 
-// 删掉目录里超过保留天数的截图。只动本程序存的「截图 」开头的文件，目录里别的东西不碰
+// 删掉目录里超过保留天数的截图。只动本程序存的「截图 」「Screenshot 」开头的文件（按界面语言起的名），目录里别的东西不碰
 - (void)cleanup {
     int days = [self keepDays];
     if (days <= 0) {
@@ -989,7 +990,7 @@ static void migrateFromOldName(void) {
         NSNumber *reg = nil;
         [u getResourceValue:&d forKey:NSURLCreationDateKey error:nil];
         [u getResourceValue:&reg forKey:NSURLIsRegularFileKey error:nil];
-        if (reg.boolValue && [u.lastPathComponent hasPrefix:@"截图 "] && d && [d compare:limit] == NSOrderedAscending) {
+        if (reg.boolValue && ([u.lastPathComponent hasPrefix:@"截图 "] || [u.lastPathComponent hasPrefix:@"Screenshot "]) && d && [d compare:limit] == NSOrderedAscending) {
             [fm removeItemAtURL:u error:nil];
         }
     }
@@ -1041,8 +1042,8 @@ static void migrateFromOldName(void) {
                                                        : [svc registerAndReturnError:&err];
     if (!ok) {
         NSAlert *a = [NSAlert new];
-        a.messageText = @"设置失败";
-        a.informativeText = err.localizedDescription ?: @"请把程序放到「应用程序」文件夹后再试。";
+        a.messageText = L(@"设置失败");
+        a.informativeText = err.localizedDescription ?: L(@"请把程序放到「应用程序」文件夹后再试。");
         [NSApp activateIgnoringOtherApps:YES];
         [a runModal];
     }
@@ -1154,7 +1155,7 @@ static BOOL isImageFile(NSURL *u) {
     [fm createDirectoryAtPath:saveDirPath() withIntermediateDirectories:YES attributes:nil error:nil];
     NSString *base;
     @synchronized(f) {
-        base = [NSString stringWithFormat:@"截图 %@", [f stringFromDate:[NSDate date]]];
+        base = [NSString stringWithFormat:@"%@ %@", L(@"截图"), [f stringFromDate:[NSDate date]]];
     }
     @synchronized(self) {
         NSString *path = [saveDirPath() stringByAppendingPathComponent:[base stringByAppendingPathExtension:ext]];
@@ -1178,10 +1179,10 @@ static BOOL isImageFile(NSURL *u) {
     c.onPin = ^(Card *x) {
         [me pin:x];
     };
-    c.closeBtn = roundButton(@"xmark", @"收起", self, @selector(cardButton:));
-    c.pinBtn = roundButton(@"pin", @"钉在屏幕上", self, @selector(cardButton:));
-    c.ocrBtn = roundButton(@"text.viewfinder", @"识别文字", self, @selector(cardButton:));
-    c.imageCopyBtn = roundButton(@"doc.on.doc", @"复制图片", self, @selector(cardButton:));
+    c.closeBtn = roundButton(@"xmark", L(@"收起"), self, @selector(cardButton:));
+    c.pinBtn = roundButton(@"pin", L(@"钉在屏幕上"), self, @selector(cardButton:));
+    c.ocrBtn = roundButton(@"text.viewfinder", L(@"识别文字"), self, @selector(cardButton:));
+    c.imageCopyBtn = roundButton(@"doc.on.doc", L(@"复制图片"), self, @selector(cardButton:));
     c.onClick = ^(Card *x, BOOL shift) {
         [me clickCard:x shift:shift];
     };
@@ -1261,7 +1262,7 @@ static BOOL isImageFile(NSURL *u) {
         [path appendFormat:@"%C", ch];
     }
     [self writeToPasteboard:path];
-    toast(c, @"已复制路径");
+    toast(c, L(@"已复制路径"));
 }
 
 // 牌角上的复制按钮：把图片本身放进剪贴板，聊天软件、文档里 ⌘V，Claude Code 里 Ctrl+V
@@ -1283,7 +1284,7 @@ static BOOL isImageFile(NSURL *u) {
     [it setData:pngData forType:NSPasteboardTypePNG];
     [it setData:img.TIFFRepresentation forType:NSPasteboardTypeTIFF];
     [self writeToPasteboard:it];
-    toast(c, @"已复制图片");
+    toast(c, L(@"已复制图片"));
 }
 
 // 往剪贴板里写东西，并记下这次变化，免得自己又把它当成新图存一遍

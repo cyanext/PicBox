@@ -1,0 +1,53 @@
+/* PicBox 的英文界面。键是源码里 L(@"…") 的中文原文，改了源码跑 python3 tools/l10n.py 检查 */
+
+/* 自动更新（Updater.m，和 PhoneMode 共用） */
+"本程序" = "This app";
+"好" = "OK";
+"新版本已经下载好" = "The update is ready";
+"等远程画面关闭后会自动安装。" = "It will be installed when the remote screen is turned off.";
+"检查更新失败" = "Couldn't check for updates";
+"连不上 GitHub，稍后再试。" = "Can't reach GitHub. Try again later.";
+"已经是最新版本" = "You're up to date";
+"新版本还没有安装包" = "The new version isn't ready to download yet";
+"稍后再试。" = "Try again later.";
+"%@ 有新版本 %@" = "%@ %@ is available";
+"当前是 %@。\n\n%@" = "You have %@.\n\n%@";
+"更新" = "Update";
+"稍后" = "Later";
+"跳过这个版本" = "Skip This Version";
+"更新失败" = "Update failed";
+"安装包下载或解压没成功，稍后再试。" = "Couldn't download or unzip the update. Try again later.";
+"远程画面正开着，关闭后会自动安装。" = "The remote screen is on. The update will be installed when it's turned off.";
+
+/* 缩略图和钉住的图 */
+"拖出来发送或保存。单击复制文件路径，Shift 单击多选，双击打开" = "Drag out to send or save. Click to copy the file path, Shift-click to select several, double-click to open.";
+"取消钉住" = "Unpin";
+"识别文字" = "Recognize Text";
+"收起" = "Hide";
+"钉在屏幕上" = "Pin to Screen";
+"复制图片" = "Copy Image";
+"已复制路径" = "Path copied";
+"已复制图片" = "Image copied";
+"截图" = "Screenshot";
+
+/* 识别文字的窗口 */
+"识别的文字" = "Recognized Text";
+"正在识别…" = "Recognizing…";
+"全部复制" = "Copy All";
+"没有识别到文字" = "No text found";
+"已复制" = "Copied";
+"已复制选中的文字" = "Selected text copied";
+
+/* 胶囊按钮和菜单 */
+"收起全部缩略图" = "Hide All Thumbnails";
+"打开截图目录" = "Open Screenshots Folder";
+"%@，按住拖动移动暂存区" = "%@. Hold and drag to move the shelf.";
+"自动清理" = "Auto Cleanup";
+"保留 1 天" = "Keep for 1 Day";
+"保留 %@ 天" = "Keep for %@ Days";
+"不清理" = "Never";
+"登录时自动打开" = "Open at Login";
+"检查更新…" = "Check for Updates…";
+"退出" = "Quit";
+"设置失败" = "Couldn't change the setting";
+"请把程序放到「应用程序」文件夹后再试。" = "Move the app to the Applications folder and try again.";

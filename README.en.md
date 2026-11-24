@@ -30,15 +30,13 @@ PicBox skips the saving step. As soon as a screenshot lands on the clipboard, it
 - The pill button in the bottom-right clears all thumbnails or opens the screenshot folder. Hold and drag it to move the whole shelf
 - Set how many days to keep screenshots from the menu bar icon
 
-The app's interface is in Chinese.
-
 <p align="center"><img src="docs/screenshot-pin.jpg" width="100%" alt="An error screenshot pinned to the screen, with the recognized text above it"></p>
 
 ## Install
 
 Download `PicBox-<version>.zip` from [Releases](https://github.com/cyanext/PicBox/releases), unzip it and drag PicBox into Applications. The first time you open it, macOS says it can't verify the developer. Go to System Settings › Privacy & Security and click "Open Anyway" at the bottom.
 
-Requires macOS 13 or later, on Apple silicon or Intel. Once it's running, the menu bar shows an icon of two stacked pictures; check 登录时自动打开 (Open at Login) there to start it automatically. When a new version is out, PicBox tells you, and clicking 更新 (Update) downloads and installs it.
+Requires macOS 13 or later, on Apple silicon or Intel. The interface follows your system language: Chinese or English. Once it's running, the menu bar shows an icon of two stacked pictures; check "Open at Login" there to start it automatically. When a new version is out, PicBox tells you, and clicking "Update" downloads and installs it.
 
 ## Privacy
 
